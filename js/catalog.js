@@ -2638,6 +2638,26 @@
                     return searchKeywords.every(kw => textToSearch.includes(kw));
                 });
             }
+
+            // Calculate stats dynamically based on filtered list
+            let totalItems = filteredProducts.length;
+            let totalCostValue = 0;
+            filteredProducts.forEach(p => {
+                const costVal = parseFloat(String(p.cost).replace(/,/g, '')) || 0;
+                const qtyVal = parseFloat(String(p.stock_qty).replace(/,/g, '')) || 0;
+                totalCostValue += costVal * qtyVal;
+            });
+
+            // Update stats DOM elements
+            const statTotalItemsEl = document.getElementById('stat_total_items');
+            const statTotalCostValueEl = document.getElementById('stat_total_cost_value');
+            if (statTotalItemsEl) {
+                statTotalItemsEl.innerText = `${totalItems.toLocaleString('th-TH')} รายการ`;
+            }
+            if (statTotalCostValueEl) {
+                statTotalCostValueEl.innerText = `฿${totalCostValue.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            }
+
             if (filteredProducts.length === 0) { tbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-gray-500">ไม่พบรายการอะไหล่ที่ค้นหา</td></tr>`; return; }
 
             filteredProducts.forEach((p, index) => {
