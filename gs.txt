@@ -2206,7 +2206,6 @@ function menuUploadJsonToFirebase() {
     if (mapFiles.hasNext()) {
       const mappings = JSON.parse(mapFiles.next().getBlob().getDataAsString());
       if (mappings) {
-        // รองรับทั้งแบบอาเรย์ตรงๆ หรือแบบห่อด้วยออบเจกต์ {"mappings": [...]}
         const mappingsData = (mappings && !Array.isArray(mappings) && mappings.mappings) ? mappings.mappings : mappings;
         setFirebaseData("mappings", mappingsData || []);
       }

@@ -1,5 +1,7 @@
         // ===== Settings & User Management System =====
         let transactions = [];
+        let publicManualsCurrentPage = 1;
+        let manageManualsCurrentPage = 1;
         // Report global variables — declared at module level so global functions (filterReport, exportReportToExcel, etc.) can access them
         if (typeof window.reportFilteredProducts === 'undefined') window.reportFilteredProducts = [];
         if (typeof window.reportProductUsageMap === 'undefined') window.reportProductUsageMap = new Map();
@@ -2638,27 +2640,39 @@
                     return searchKeywords.every(kw => textToSearch.includes(kw));
                 });
             }
-
-            // Calculate stats dynamically based on filtered list
-            let totalItems = filteredProducts.length;
-            let totalCostValue = 0;
-            filteredProducts.forEach(p => {
-                const costVal = parseFloat(String(p.cost).replace(/,/g, '')) || 0;
-                const qtyVal = parseFloat(String(p.stock_qty).replace(/,/g, '')) || 0;
-                totalCostValue += costVal * qtyVal;
-            });
-
-            // Update stats DOM elements
-            const statTotalItemsEl = document.getElementById('stat_total_items');
-            const statTotalCostValueEl = document.getElementById('stat_total_cost_value');
-            if (statTotalItemsEl) {
-                statTotalItemsEl.innerText = `${totalItems.toLocaleString('th-TH')} รายการ`;
-            }
-            if (statTotalCostValueEl) {
-                statTotalCostValueEl.innerText = `฿${totalCostValue.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            // --- Stats Calculation & DOM Update ---
+            let totalCount = (db && Array.isArray(db.products)) ? db.products.length : 0;
+            let totalValue = 0;
+            if (db && Array.isArray(db.products)) {
+                db.products.forEach(p => {
+                    const costVal = parseFloat(String(p.cost || 0).replace(/,/g, '')) || 0;
+                    const stockVal = parseFloat(String(p.stock_qty || 0).replace(/,/g, '')) || 0;
+                    totalValue += costVal * stockVal;
+                });
             }
 
-            if (filteredProducts.length === 0) { tbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-gray-500">ไม่พบรายการอะไหล่ที่ค้นหา</td></tr>`; return; }
+            let filteredCount = filteredProducts ? filteredProducts.length : 0;
+            let filteredValue = 0;
+            if (filteredProducts) {
+                filteredProducts.forEach(p => {
+                    const costVal = parseFloat(String(p.cost || 0).replace(/,/g, '')) || 0;
+                    const stockVal = parseFloat(String(p.stock_qty || 0).replace(/,/g, '')) || 0;
+                    filteredValue += costVal * stockVal;
+                });
+            }
+
+            const elTotalCount = document.getElementById('total_products_count');
+            const elTotalValue = document.getElementById('total_products_value');
+            const elFilteredCountLbl = document.getElementById('filtered_products_count_lbl');
+            const elFilteredValueLbl = document.getElementById('filtered_products_value_lbl');
+
+            if (elTotalCount) elTotalCount.innerText = totalCount.toLocaleString('th-TH');
+            if (elTotalValue) elTotalValue.innerText = '฿' + totalValue.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            if (elFilteredCountLbl) elFilteredCountLbl.innerText = `แสดงผลตามตัวกรอง: ${filteredCount.toLocaleString('th-TH')} รายการ`;
+            if (elFilteredValueLbl) elFilteredValueLbl.innerText = `มูลค่าของรายการที่แสดง: ฿` + filteredValue.toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            // --------------------------------------
+
+            if (!filteredProducts || filteredProducts.length === 0) { tbody.innerHTML = `<tr><td colspan="12" class="p-8 text-center text-gray-500">ไม่พบรายการอะไหล่ที่ค้นหา</td></tr>`; return; }
 
             filteredProducts.forEach((p, index) => {
                 const costVal = parseFloat(String(p.cost).replace(/,/g, '')) || 0;
