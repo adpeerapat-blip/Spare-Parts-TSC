@@ -43,31 +43,112 @@
                 showToast('คุณไม่มีสิทธิ์เข้าถึงส่วนนี้', 'error');
                 return;
             }
-            
-            const action = type === 'json' ? 'backupFirebaseToDrive' : 'backupFirebaseToSheets';
-            const confirmMsg = type === 'json' 
-                ? 'คุณต้องการสำรองข้อมูลจาก Firebase บันทึกเป็นไฟล์ JSON ใน Google Drive ใช่หรือไม่?'
-                : 'คุณต้องการสำรองข้อมูลจาก Firebase ไปบันทึกทับลงใน Google Sheet ทั้งหมดใช่หรือไม่? (การกระทำนี้จะใช้เวลาสักครู่)';
-                
-            const result = await Swal.fire({
-                title: 'ยืนยันการสำรองข้อมูล',
-                text: confirmMsg,
-                icon: 'warning',
+
+            const typeLabel = type === 'json' ? 'JSON ใน Google Drive' : 'Google Sheets';
+
+            // แสดงหน้าต่างเลือกส่วนที่ต้องการสำรองข้อมูล
+            const { value: selectedParts } = await Swal.fire({
+                title: `สำรองข้อมูล (${typeLabel})`,
+                html: `
+                    <p class="text-xs text-slate-500 mb-4 text-left">เลือกข้อมูลส่วนที่ต้องการสำรองระบบลงใน ${typeLabel} (ติ๊กเลือกอย่างน้อย 1 รายการ)</p>
+                    <div class="space-y-2 text-left text-sm max-h-[300px] overflow-y-auto px-1">
+                        <label class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer select-none">
+                            <input type="checkbox" id="chk_b_products" value="products" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <div>
+                                <span class="font-bold text-slate-700">ข้อมูลรายการอะไหล่</span>
+                                <p class="text-[10px] text-slate-400">รายการอะไหล่, หมวดหมู่, สต็อกคงเหลือ</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer select-none">
+                            <input type="checkbox" id="chk_b_machines" value="machines" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <div>
+                                <span class="font-bold text-slate-700">ข้อมูลเครื่องจักร</span>
+                                <p class="text-[10px] text-slate-400">รายชื่อเครื่องจักรและรายละเอียดกลุ่มเครื่องจักร</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer select-none">
+                            <input type="checkbox" id="chk_b_mappings" value="mappings" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <div>
+                                <span class="font-bold text-slate-700">ข้อมูลการจับคู่อะไหล่-เครื่องจักร</span>
+                                <p class="text-[10px] text-slate-400">ประวัติการแมปปิ้งอะไหล่ว่าใช้ร่วมกับเครื่องจักรใดได้บ้าง</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer select-none">
+                            <input type="checkbox" id="chk_b_lots" value="lots" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <div>
+                                <span class="font-bold text-slate-700">ข้อมูลล็อตต้นทุนและราคาขาย (Lots)</span>
+                                <p class="text-[10px] text-slate-400">ประวัติการลงบัญชีล็อตสินค้าและต้นทุน FIFO</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer select-none">
+                            <input type="checkbox" id="chk_b_purchaseOrders" value="purchaseOrders" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <div>
+                                <span class="font-bold text-slate-700">ข้อมูลประวัติการสั่งซื้อ (PO/PR)</span>
+                                <p class="text-[10px] text-slate-400">ข้อมูลคำสั่งซื้ออะไหล่เข้าระบบทั้งหมด</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer select-none">
+                            <input type="checkbox" id="chk_b_transactions" value="transactions" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <div>
+                                <span class="font-bold text-slate-700">ประวัติการเบิกจ่ายอะไหล่ (POS Transactions)</span>
+                                <p class="text-[10px] text-slate-400">บันทึกรายการทำธุรกรรมเบิกจ่ายทั้งหมด</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer select-none">
+                            <input type="checkbox" id="chk_b_users" value="users" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <div>
+                                <span class="font-bold text-slate-700">ข้อมูลสมาชิกผู้ใช้งาน</span>
+                                <p class="text-[10px] text-slate-400">รายชื่อ สิทธิ์ และระดับราคาของพนักงานในระบบ</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer select-none">
+                            <input type="checkbox" id="chk_b_settings" value="settings" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <div>
+                                <span class="font-bold text-slate-700">ข้อมูลการตั้งค่าระบบ</span>
+                                <p class="text-[10px] text-slate-400">การตั้งค่าการเข้าถึงราคาของบุคคลภายนอก</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-2 rounded-xl hover:bg-slate-50 border border-slate-100 cursor-pointer select-none">
+                            <input type="checkbox" id="chk_b_manuals" value="manuals" class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+                            <div>
+                                <span class="font-bold text-slate-700">ข้อมูลไฟล์คู่มือการใช้งานระบบ</span>
+                                <p class="text-[10px] text-slate-400">รายการและลิงก์ของคู่มือระบบ</p>
+                            </div>
+                        </label>
+                    </div>
+                `,
                 showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'ยืนยัน',
-                cancelButtonText: 'ยกเลิก'
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#ef4444',
+                confirmButtonText: '<i class="fa-solid fa-cloud-arrow-down mr-1"></i> เริ่มสำรองข้อมูล',
+                cancelButtonText: 'ยกเลิก',
+                preConfirm: () => {
+                    const parts = [];
+                    const chks = ['products', 'machines', 'mappings', 'lots', 'purchaseOrders', 'transactions', 'users', 'settings', 'manuals'];
+                    chks.forEach(c => {
+                        const el = document.getElementById('chk_b_' + c);
+                        if (el && el.checked) parts.push(c);
+                    });
+                    if (parts.length === 0) {
+                        Swal.showValidationMessage('กรุณาเลือกอย่างน้อย 1 รายการที่ต้องการสำรองข้อมูลค่ะ');
+                        return false;
+                    }
+                    return parts;
+                }
             });
-            
-            if (result.isConfirmed) {
-                showLoading('กำลังสำรองข้อมูล กรุณารอสักครู่...');
+
+            if (selectedParts) {
+                showLoading('กำลังดำเนินการสำรองข้อมูลระบบ...');
                 try {
+                    const action = type === 'json' ? 'backupFirebaseToDrive' : 'backupFirebaseToSheets';
                     const res = await fetch(API_URL, {
                         method: 'POST',
                         body: JSON.stringify({
                             action: action,
-                            payload: { requesterEmail: currentUser.email }
+                            payload: { 
+                                requesterEmail: currentUser.email,
+                                parts: selectedParts
+                            }
                         })
                     });
                     

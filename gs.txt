@@ -149,11 +149,11 @@ function doPost(e) {
       response.message = 'ลบคู่มือสำเร็จ';
     }
     else if (action === 'backupFirebaseToDrive') {
-      backupFirebaseToDrive();
+      backupFirebaseToDrive(payload.parts);
       response.message = 'สำรองไฟล์ JSON ลง Google Drive สำเร็จ';
     }
     else if (action === 'backupFirebaseToSheets') {
-      backupFirebaseToSheets();
+      backupFirebaseToSheets(payload.parts);
       response.message = 'สำรองข้อมูลลง Google Sheet สำเร็จ';
     }
 
@@ -1974,192 +1974,226 @@ function menuSyncToWebsite() {
 
 // ===== Manual Backup Systems (Admin on Website) =====
 
-function backupFirebaseToDrive() {
-  const products = getFirebaseData("appData/products") || [];
-  const machines = getFirebaseData("appData/machines") || [];
-  const mappings = getFirebaseData("mappings") || [];
-  const settings = getFirebaseData("appData/settings") || { isShowPriceBForGuest: false, isShowPriceCForGuest: false };
-  const manuals = getFirebaseData("appData/manuals") || [];
-  const lots = getFirebaseData("lots") || [];
-  const purchaseOrders = getFirebaseData("appData/purchaseOrders") || [];
-  
-  const appData = {
-    products: products,
-    machines: machines,
-    mappings: mappings,
-    settings: settings,
-    manuals: manuals,
-    lots: lots,
-    purchaseOrders: purchaseOrders
-  };
-  
+function backupFirebaseToDrive(parts) {
+  const all = !parts || !Array.isArray(parts);
+  const shouldBackup = (name) => all || parts.indexOf(name) !== -1;
+
   const folder = DriveApp.getFolderById(JSON_FOLDER_ID);
   
-  // บันทึก app_data.json
-  const appDataFiles = folder.getFilesByName("app_data.json");
-  const appDataContent = JSON.stringify(appData);
-  if (appDataFiles.hasNext()) {
-    appDataFiles.next().setContent(appDataContent);
-  } else {
-    folder.createFile("app_data.json", appDataContent, MimeType.PLAIN_TEXT);
-  }
-  
-  // บันทึก lots.json
-  const lotsFiles = folder.getFilesByName("lots.json");
-  const lotsContent = JSON.stringify(lots);
-  if (lotsFiles.hasNext()) {
-    lotsFiles.next().setContent(lotsContent);
-  } else {
-    folder.createFile("lots.json", lotsContent, MimeType.PLAIN_TEXT);
-  }
-  
-  // บันทึก mappings.json
-  const mapFiles = folder.getFilesByName("mappings.json");
-  const mapContent = JSON.stringify(mappings);
-  if (mapFiles.hasNext()) {
-    mapFiles.next().setContent(mapContent);
-  } else {
-    folder.createFile("mappings.json", mapContent, MimeType.PLAIN_TEXT);
+  // 1. app_data.json contains products, machines, settings, manuals, purchaseOrders
+  if (shouldBackup("products") || shouldBackup("machines") || shouldBackup("settings") || shouldBackup("manuals") || shouldBackup("purchaseOrders") || shouldBackup("lots") || shouldBackup("mappings")) {
+    let appData = {};
+    const appDataFiles = folder.getFilesByName("app_data.json");
+    if (appDataFiles.hasNext()) {
+      try {
+        appData = JSON.parse(appDataFiles.next().getBlob().getDataAsString()) || {};
+      } catch(e) {}
+    }
+    
+    if (shouldBackup("products")) appData.products = getFirebaseData("appData/products") || [];
+    if (shouldBackup("machines")) appData.machines = getFirebaseData("appData/machines") || [];
+    if (shouldBackup("settings")) appData.settings = getFirebaseData("appData/settings") || { isShowPriceBForGuest: false, isShowPriceCForGuest: false };
+    if (shouldBackup("manuals")) appData.manuals = getFirebaseData("appData/manuals") || [];
+    if (shouldBackup("purchaseOrders")) appData.purchaseOrders = getFirebaseData("appData/purchaseOrders") || [];
+    if (shouldBackup("lots")) appData.lots = getFirebaseData("lots") || [];
+    if (shouldBackup("mappings")) appData.mappings = getFirebaseData("mappings") || [];
+    
+    const appDataContent = JSON.stringify(appData);
+    const files = folder.getFilesByName("app_data.json");
+    if (files.hasNext()) {
+      files.next().setContent(appDataContent);
+    } else {
+      folder.createFile("app_data.json", appDataContent, MimeType.PLAIN_TEXT);
+    }
   }
 
-  // บันทึก transactions.json
-  const transactions = getFirebaseData("transactions") || [];
-  const txFiles = folder.getFilesByName("transactions.json");
-  const txContent = JSON.stringify(transactions);
-  if (txFiles.hasNext()) {
-    txFiles.next().setContent(txContent);
-  } else {
-    folder.createFile("transactions.json", txContent, MimeType.PLAIN_TEXT);
+  // 2. lots.json
+  if (shouldBackup("lots")) {
+    const lots = getFirebaseData("lots") || [];
+    const lotsFiles = folder.getFilesByName("lots.json");
+    const lotsContent = JSON.stringify(lots);
+    if (lotsFiles.hasNext()) {
+      lotsFiles.next().setContent(lotsContent);
+    } else {
+      folder.createFile("lots.json", lotsContent, MimeType.PLAIN_TEXT);
+    }
   }
   
-  // บันทึก users.json
-  const users = getFirebaseData("users") || [];
-  const userFiles = folder.getFilesByName("users.json");
-  const userContent = JSON.stringify(users);
-  if (userFiles.hasNext()) {
-    userFiles.next().setContent(userContent);
-  } else {
-    folder.createFile("users.json", userContent, MimeType.PLAIN_TEXT);
+  // 3. mappings.json
+  if (shouldBackup("mappings")) {
+    const mappings = getFirebaseData("mappings") || [];
+    const mapFiles = folder.getFilesByName("mappings.json");
+    const mapContent = JSON.stringify(mappings);
+    if (mapFiles.hasNext()) {
+      mapFiles.next().setContent(mapContent);
+    } else {
+      folder.createFile("mappings.json", mapContent, MimeType.PLAIN_TEXT);
+    }
+  }
+
+  // 4. transactions.json
+  if (shouldBackup("transactions")) {
+    const transactions = getFirebaseData("transactions") || [];
+    const txFiles = folder.getFilesByName("transactions.json");
+    const txContent = JSON.stringify(transactions);
+    if (txFiles.hasNext()) {
+      txFiles.next().setContent(txContent);
+    } else {
+      folder.createFile("transactions.json", txContent, MimeType.PLAIN_TEXT);
+    }
+  }
+  
+  // 5. users.json
+  if (shouldBackup("users")) {
+    const users = getFirebaseData("users") || [];
+    const userFiles = folder.getFilesByName("users.json");
+    const userContent = JSON.stringify(users);
+    if (userFiles.hasNext()) {
+      userFiles.next().setContent(userContent);
+    } else {
+      folder.createFile("users.json", userContent, MimeType.PLAIN_TEXT);
+    }
   }
 }
 
-function backupFirebaseToSheets() {
+function backupFirebaseToSheets(parts) {
+  const all = !parts || !Array.isArray(parts);
+  const shouldBackup = (name) => all || parts.indexOf(name) !== -1;
+
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   
   // 1. Products Sheet
-  const products = getFirebaseData("appData/products") || [];
-  const prodSheet = ss.getSheetByName("Products");
-  if (prodSheet) {
-    prodSheet.clearContents();
-    prodSheet.appendRow(["Product_ID", "Product_Name", "Unit", "Cost", "Price_A", "Price_B", "Price_C", "Category", "Note", "Image_URL", "Stock_Qty", "Product_Group", "Supplier", "Storage_Area"]);
-    products.forEach(p => {
-      prodSheet.appendRow([
-        p.id, p.name, p.unit, p.cost, p.price_a, p.price_b, p.price_c,
-        p.category, p.note, p.image_url, p.stock_qty, p.group || "", p.supplier || "", p.storage || ""
-      ]);
-    });
+  if (shouldBackup("products")) {
+    const products = getFirebaseData("appData/products") || [];
+    const prodSheet = ss.getSheetByName("Products");
+    if (prodSheet) {
+      prodSheet.clearContents();
+      prodSheet.appendRow(["Product_ID", "Product_Name", "Unit", "Cost", "Price_A", "Price_B", "Price_C", "Category", "Note", "Image_URL", "Stock_Qty", "Product_Group", "Supplier", "Storage_Area"]);
+      products.forEach(p => {
+        prodSheet.appendRow([
+          p.id, p.name, p.unit, p.cost, p.price_a, p.price_b, p.price_c,
+          p.category, p.note, p.image_url, p.stock_qty, p.group || "", p.supplier || "", p.storage || ""
+        ]);
+      });
+    }
   }
   
   // 2. Machines Sheet
-  const machines = getFirebaseData("appData/machines") || [];
-  const machSheet = ss.getSheetByName("Machines");
-  if (machSheet) {
-    machSheet.clearContents();
-    machSheet.appendRow(["Machine_ID", "Machine_Name", "Image_URL", "Cost", "Price_A", "Price_B", "Price_C", "Note", "Machine_Group", "Supplier", "Storage_Area"]);
-    machines.forEach(m => {
-      machSheet.appendRow([
-        m.id, m.name, m.image_url || "", m.cost || 0, m.price_a || 0, m.price_b || 0, m.price_c || 0, m.note || "",
-        m.group || "", m.supplier || "", m.storage || ""
-      ]);
-    });
+  if (shouldBackup("machines")) {
+    const machines = getFirebaseData("appData/machines") || [];
+    const machSheet = ss.getSheetByName("Machines");
+    if (machSheet) {
+      machSheet.clearContents();
+      machSheet.appendRow(["Machine_ID", "Machine_Name", "Image_URL", "Cost", "Price_A", "Price_B", "Price_C", "Note", "Machine_Group", "Supplier", "Storage_Area"]);
+      machines.forEach(m => {
+        machSheet.appendRow([
+          m.id, m.name, m.image_url || "", m.cost || 0, m.price_a || 0, m.price_b || 0, m.price_c || 0, m.note || "",
+          m.group || "", m.supplier || "", m.storage || ""
+        ]);
+      });
+    }
   }
   
   // 3. Settings Sheet
-  const settings = getFirebaseData("appData/settings") || {};
-  const settingsSheet = ss.getSheetByName("Settings");
-  if (settingsSheet) {
-    settingsSheet.clearContents();
-    settingsSheet.appendRow(["Setting_Key", "Setting_Value"]);
-    settingsSheet.appendRow(["isShowPriceBForGuest", settings.isShowPriceBForGuest ? "true" : "false"]);
-    settingsSheet.appendRow(["isShowPriceCForGuest", settings.isShowPriceCForGuest ? "true" : "false"]);
+  if (shouldBackup("settings")) {
+    const settings = getFirebaseData("appData/settings") || {};
+    const settingsSheet = ss.getSheetByName("Settings");
+    if (settingsSheet) {
+      settingsSheet.clearContents();
+      settingsSheet.appendRow(["Setting_Key", "Setting_Value"]);
+      settingsSheet.appendRow(["isShowPriceBForGuest", settings.isShowPriceBForGuest ? "true" : "false"]);
+      settingsSheet.appendRow(["isShowPriceCForGuest", settings.isShowPriceCForGuest ? "true" : "false"]);
+    }
   }
   
   // 4. Manuals Sheet
-  const manuals = getFirebaseData("appData/manuals") || [];
-  const manSheet = ss.getSheetByName("Manuals");
-  if (manSheet) {
-    manSheet.clearContents();
-    manSheet.appendRow(["Manual_ID", "Title", "Description", "File_URL", "File_Type", "Uploaded_At"]);
-    manuals.forEach(m => {
-      manSheet.appendRow([
-        m.id, m.title, m.description || "", m.file_url || "", m.file_type || "", m.uploaded_at || ""
-      ]);
-    });
+  if (shouldBackup("manuals")) {
+    const manuals = getFirebaseData("appData/manuals") || [];
+    const manSheet = ss.getSheetByName("Manuals");
+    if (manSheet) {
+      manSheet.clearContents();
+      manSheet.appendRow(["Manual_ID", "Title", "Description", "File_URL", "File_Type", "Uploaded_At"]);
+      manuals.forEach(m => {
+        manSheet.appendRow([
+          m.id, m.title, m.description || "", m.file_url || "", m.file_type || "", m.uploaded_at || ""
+        ]);
+      });
+    }
   }
   
   // 5. PurchaseOrders Sheet
-  const purchaseOrders = getFirebaseData("appData/purchaseOrders") || [];
-  const poSheet = ss.getSheetByName("PurchaseOrders");
-  if (poSheet) {
-    poSheet.clearContents();
-    poSheet.appendRow(["PO_Number", "PR_Number", "Product_ID", "Product_Name", "Order_Date", "Ordered_Qty", "Received_Qty", "Last_Received_Date", "Status", "Unit_Cost", "Total_Cost", "Supplier"]);
-    purchaseOrders.forEach(o => {
-      poSheet.appendRow([
-        o.poNumber, o.prNumber || "", o.productId, o.productName, o.orderDate, o.orderedQty, o.receivedQty, o.lastReceivedDate || "",
-        o.status, o.unitCost || 0, o.totalCost || 0, o.supplier || ""
-      ]);
-    });
+  if (shouldBackup("purchaseOrders")) {
+    const purchaseOrders = getFirebaseData("appData/purchaseOrders") || [];
+    const poSheet = ss.getSheetByName("PurchaseOrders");
+    if (poSheet) {
+      poSheet.clearContents();
+      poSheet.appendRow(["PO_Number", "PR_Number", "Product_ID", "Product_Name", "Order_Date", "Ordered_Qty", "Received_Qty", "Last_Received_Date", "Status", "Unit_Cost", "Total_Cost", "Supplier"]);
+      purchaseOrders.forEach(o => {
+        poSheet.appendRow([
+          o.poNumber, o.prNumber || "", o.productId, o.productName, o.orderDate, o.orderedQty, o.receivedQty, o.lastReceivedDate || "",
+          o.status, o.unitCost || 0, o.totalCost || 0, o.supplier || ""
+        ]);
+      });
+    }
   }
 
   // 6. Transactions Sheet
-  const transactions = getFirebaseData("transactions") || [];
-  const txSheet = ss.getSheetByName("Transactions");
-  if (txSheet) {
-    txSheet.clearContents();
-    txSheet.appendRow(["Transaction_ID", "Requester", "Department", "Machine_ID", "Serial_Number", "Total_Price", "Note", "Created_At", "Status", "Items_JSON"]);
-    transactions.forEach(t => {
-      txSheet.appendRow([
-        t.id, t.requester, t.department, t.machine_id, t.serial_number || "", t.total_price, t.note || "", t.created_at, t.status, JSON.stringify(t.items || [])
-      ]);
-    });
+  if (shouldBackup("transactions")) {
+    const transactions = getFirebaseData("transactions") || [];
+    const txSheet = ss.getSheetByName("Transactions");
+    if (txSheet) {
+      txSheet.clearContents();
+      txSheet.appendRow(["Transaction_ID", "Requester", "Department", "Machine_ID", "Serial_Number", "Total_Price", "Note", "Created_At", "Status", "Items_JSON"]);
+      transactions.forEach(t => {
+        txSheet.appendRow([
+          t.id, t.requester, t.department, t.machine_id, t.serial_number || "", t.total_price, t.note || "", t.created_at, t.status, JSON.stringify(t.items || [])
+        ]);
+      });
+    }
   }
 
   // 7. Mappings Sheet
-  const mappings = getFirebaseData("mappings") || [];
-  const mapSheet = ss.getSheetByName("Mappings");
-  if (mapSheet) {
-    mapSheet.clearContents();
-    mapSheet.appendRow(["Product_ID", "Machine_ID"]);
-    mappings.forEach(m => {
-      mapSheet.appendRow([m.product_id, m.machine_id]);
-    });
+  if (shouldBackup("mappings")) {
+    const mappings = getFirebaseData("mappings") || [];
+    const mapSheet = ss.getSheetByName("Mappings");
+    if (mapSheet) {
+      mapSheet.clearContents();
+      mapSheet.appendRow(["Product_ID", "Machine_ID"]);
+      mappings.forEach(m => {
+        mapSheet.appendRow([m.product_id, m.machine_id]);
+      });
+    }
   }
 
   // 8. Lots Sheet
-  const lots = getFirebaseData("lots") || [];
-  const lotsSheet = ss.getSheetByName("Lots");
-  if (lotsSheet) {
-    lotsSheet.clearContents();
-    lotsSheet.appendRow(["Lot_ID", "Product_ID", "Cost", "Price_A", "Price_B", "Price_C", "Initial_Qty", "Remaining_Qty", "Created_At", "Note"]);
-    lots.forEach(l => {
-      lotsSheet.appendRow([
-        l.lot_id, l.product_id, l.cost || 0, l.price_a || 0, l.price_b || 0, l.price_c || 0,
-        l.initial_qty || 0, l.remaining_qty || 0, l.created_at || "", l.note || ""
-      ]);
-    });
+  if (shouldBackup("lots")) {
+    const lots = getFirebaseData("lots") || [];
+    const lotsSheet = ss.getSheetByName("Lots");
+    if (lotsSheet) {
+      lotsSheet.clearContents();
+      lotsSheet.appendRow(["Lot_ID", "Product_ID", "Cost", "Price_A", "Price_B", "Price_C", "Initial_Qty", "Remaining_Qty", "Created_At", "Note"]);
+      lots.forEach(l => {
+        lotsSheet.appendRow([
+          l.lot_id, l.product_id, l.cost || 0, l.price_a || 0, l.price_b || 0, l.price_c || 0,
+          l.initial_qty || 0, l.remaining_qty || 0, l.created_at || "", l.note || ""
+        ]);
+      });
+    }
   }
 
   // 9. Users Sheet
-  const users = getFirebaseData("users") || [];
-  const usersSheet = ss.getSheetByName("Users");
-  if (usersSheet) {
-    usersSheet.clearContents();
-    usersSheet.appendRow(["Full_Name", "Department", "Phone", "Email", "Password_Hash", "Role", "Price_Level", "User_Type"]);
-    users.forEach(u => {
-      usersSheet.appendRow([
-        u.fullName, u.department, u.phone || "", u.email, u.passwordHash, u.role || "user", u.priceLevel || "A", u.userType || "insource"
-      ]);
-    });
+  if (shouldBackup("users")) {
+    const users = getFirebaseData("users") || [];
+    const usersSheet = ss.getSheetByName("Users");
+    if (usersSheet) {
+      usersSheet.clearContents();
+      usersSheet.appendRow(["Full_Name", "Department", "Phone", "Email", "Password_Hash", "Role", "Price_Level", "User_Type"]);
+      users.forEach(u => {
+        usersSheet.appendRow([
+          u.fullName, u.department, u.phone || "", u.email, u.passwordHash, u.role || "user", u.priceLevel || "A", u.userType || "insource"
+        ]);
+      });
+    }
   }
 }
 
